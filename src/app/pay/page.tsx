@@ -1,17 +1,85 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { QrCode, Check, Store, CreditCard, Banknote } from "lucide-react";
-import { useState } from "react";
+import { Camera, Check, Store, CreditCard, Banknote, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Html5Qrcode } from "html5-qrcode";
 import BottomNav from "@/components/BottomNav";
 
 type PayStep = "scan" | "confirm" | "success";
 
+const SCANNER_ID = "len-qr-reader";
+
 export default function PayPage() {
   const [step, setStep] = useState<PayStep>("scan");
-  const amount = 1000;
-  const credit = 480;
-  const remaining = amount - credit;
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState("");
+  const [merchant, setMerchant] = useState("");
+  const [amount, setAmount] = useState(0);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  const stopScanner = async () => {
+    const scanner = scannerRef.current;
+    if (scanner) {
+      try {
+        if (scanner.isScanning) await scanner.stop();
+        scanner.clear();
+      } catch {
+        /* ignore */
+      }
+      scannerRef.current = null;
+    }
+    setScanning(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
+  const handleResult = (decoded: string) => {
+    try {
+      const data = JSON.parse(decoded);
+      if (data?.t !== "LEN_PAY" || !data?.a) {
+        setError("Not a valid LEN payment QR code.");
+        return;
+      }
+      setMerchant(typeof data.m === "string" ? data.m : "LEN Merchant");
+      setAmount(Number(data.a) || 0);
+      stopScanner();
+      setError("");
+      setStep("confirm");
+    } catch {
+      setError("Could not read this QR code. Try again.");
+    }
+  };
+
+  const startScan = async () => {
+    setError("");
+    setScanning(true);
+    try {
+      const scanner = new Html5Qrcode(SCANNER_ID);
+      scannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decoded) => handleResult(decoded),
+        undefined
+      );
+    } catch {
+      setError("Camera access denied or unavailable.");
+      setScanning(false);
+    }
+  };
+
+  const resetFlow = async () => {
+    await stopScanner();
+    setMerchant("");
+    setAmount(0);
+    setError("");
+    setStep("scan");
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -33,21 +101,32 @@ export default function PayPage() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex flex-col items-center"
             >
-              <div className="w-full aspect-square max-w-[280px] bg-card border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-4 mb-6">
-                <motion.div
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <QrCode className="w-16 h-16 text-primary/30" />
-                </motion.div>
-                <p className="text-sm text-text-muted">Point camera at QR code</p>
+              <div className="relative w-full aspect-square max-w-[300px] bg-black rounded-2xl overflow-hidden mb-4 flex items-center justify-center">
+                <div id={SCANNER_ID} className="w-full h-full [&_video]:object-cover" />
+                {!scanning && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card border-2 border-dashed border-border rounded-2xl">
+                    <Camera className="w-14 h-14 text-primary/30" />
+                    <p className="text-sm text-text-muted">Tap below to open camera</p>
+                  </div>
+                )}
+                {scanning && (
+                  <div className="pointer-events-none absolute inset-8 border-2 border-secondary/80 rounded-xl" />
+                )}
               </div>
 
+              {error && (
+                <div className="w-full bg-danger/5 border border-danger/20 rounded-xl p-3 flex items-center gap-2 mb-4">
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0" />
+                  <p className="text-xs text-danger font-medium">{error}</p>
+                </div>
+              )}
+
               <button
-                onClick={() => setStep("confirm")}
-                className="w-full h-13 bg-primary text-white rounded-xl font-semibold text-sm shadow-lg shadow-primary/20"
+                onClick={scanning ? stopScanner : startScan}
+                className="w-full h-13 bg-primary text-white rounded-xl font-semibold text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
               >
-                Simulate QR Scan
+                <Camera className="w-4 h-4" />
+                {scanning ? "Stop Camera" : "Scan Merchant QR"}
               </button>
             </motion.div>
           )}
@@ -66,8 +145,8 @@ export default function PayPage() {
                     <Store className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-semibold text-text">ABC Design Studio</p>
-                    <p className="text-xs text-text-muted">Creative Services</p>
+                    <p className="font-semibold text-text">{merchant}</p>
+                    <p className="text-xs text-text-muted">LEN Merchant</p>
                   </div>
                 </div>
 
@@ -85,14 +164,14 @@ export default function PayPage() {
                       <CreditCard className="w-4 h-4 text-secondary" />
                       <span className="text-sm text-text-muted">Apply Credit</span>
                     </div>
-                    <span className="text-lg font-bold text-success">-HKD {credit}</span>
+                    <span className="text-lg font-bold text-success">-HKD {amount.toLocaleString()}</span>
                   </div>
 
                   <div className="h-px bg-border" />
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-text">Remaining Cash</span>
-                    <span className="text-xl font-bold text-primary">HKD {remaining}</span>
+                    <span className="text-xl font-bold text-primary">HKD 0</span>
                   </div>
                 </div>
               </div>
@@ -100,7 +179,7 @@ export default function PayPage() {
               <div className="bg-success/5 border border-success/20 rounded-xl p-3 flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-success" />
                 <p className="text-xs text-success font-medium">
-                  Using maximum available credit: HKD {credit}
+                  Fully paid with LEN credit: HKD {amount.toLocaleString()}
                 </p>
               </div>
 
@@ -144,14 +223,14 @@ export default function PayPage() {
                 transition={{ delay: 0.5 }}
                 className="text-text-muted text-sm mb-8"
               >
-                HKD {credit} credit applied to ABC Design Studio
+                HKD {amount.toLocaleString()} credit applied to {merchant}
               </motion.p>
 
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
-                onClick={() => setStep("scan")}
+                onClick={resetFlow}
                 className="px-6 h-11 bg-card border border-border rounded-xl text-sm font-medium text-text"
               >
                 Done

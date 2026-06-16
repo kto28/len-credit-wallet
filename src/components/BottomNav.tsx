@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, QrCode, Users, Bell } from "lucide-react";
+import { Home, Wallet, QrCode, Users, Bell, UserCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const navItems = [
   { icon: QrCode, label: "Pay", path: "/pay" },
   { icon: Users, label: "Directory", path: "/directory" },
   { icon: Bell, label: "Alerts", path: "/notifications" },
+  { icon: UserCircle, label: "ME", path: "/me" },
 ];
 
 export default function BottomNav() {
@@ -19,7 +20,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border safe-bottom">
-      <div className="flex items-center justify-around h-16 max-w-md mx-auto px-2">
+      <div className="flex items-center justify-around h-16 max-w-md mx-auto px-1">
         {navItems.map((item) => {
           const isActive = pathname === item.path || pathname?.startsWith(item.path + "/");
           return (
@@ -27,7 +28,7 @@ export default function BottomNav() {
               key={item.path}
               onClick={() => router.push(item.path)}
               className={cn(
-                "relative flex flex-col items-center justify-center w-14 h-14 rounded-xl transition-colors",
+                "relative flex flex-col items-center justify-center w-12 h-14 rounded-xl transition-colors",
                 isActive ? "text-primary" : "text-text-muted"
               )}
             >
