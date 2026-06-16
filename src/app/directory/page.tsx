@@ -6,19 +6,23 @@ import { useState } from "react";
 import BottomNav from "@/components/BottomNav";
 
 const members = [
-  { id: 1, name: "Alice Wong", business: "ABC Design Studio", category: "Creative Services", chapter: "Central", photo: "AW" },
-  { id: 2, name: "Bob Lee", business: "XYZ Photography", category: "Photography", chapter: "Kowloon", photo: "BL" },
-  { id: 3, name: "Charlie Ng", business: "DEF Consulting", category: "Business Consulting", chapter: "Central", photo: "CN" },
-  { id: 4, name: "Diana Cheung", business: "GHI Marketing", category: "Digital Marketing", chapter: "Wan Chai", photo: "DC" },
-  { id: 5, name: "Edward Lam", business: "JKL Legal", category: "Legal Services", chapter: "Admiralty", photo: "EL" },
-  { id: 6, name: "Fiona Ho", business: "MNO Finance", category: "Financial Advisory", chapter: "Central", photo: "FH" },
+  { id: 1, name: "Bryan Cheung", business: "人工智能辦公室應用", photo: "BC" },
+  { id: 2, name: "Eddy To", business: "保險及強積金 / 理財顧問", photo: "ET" },
+  { id: 3, name: "Jacky Chiu", business: "營銷科技學院", photo: "JC" },
+  { id: 4, name: "Joseph Ng", business: "舞蹈治療", photo: "JN" },
+  { id: 5, name: "Miranda Mok", business: "基因抗衰老產品", photo: "MM" },
+  { id: 6, name: "Jason Li", business: "投資教育", photo: "JL" },
+  { id: 7, name: "Anita Cheung", business: "交友約會", photo: "AC" },
+  { id: 8, name: "Fanny Lam", business: "皮膚護理及減壓按摩服務", photo: "FL" },
+  { id: 9, name: "Horace Lai", business: "會計核數", photo: "HL" },
+  { id: 10, name: "Jenny Tse", business: "企業文化諮詢顧問", photo: "JT" },
+  { id: 11, name: "Marco Leung", business: "商舖地產代理", photo: "ML" },
+  { id: 12, name: "Fung Lo", business: "泰式到會服務 / 到會餐飲", photo: "FL" },
+  { id: 13, name: "Cathy Wong", business: "ERP 企業管理系統顧問", photo: "CW" },
 ];
-
-const categories = ["All", "Creative", "Consulting", "Marketing", "Legal", "Finance"];
 
 export default function DirectoryPage() {
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
 
   const filtered = members.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,22 +51,6 @@ export default function DirectoryPage() {
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                activeCategory === cat
-                  ? "bg-primary text-white"
-                  : "bg-card border border-border text-text-muted"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
         <div className="space-y-3">
           {filtered.map((member, i) => (
             <motion.div
@@ -78,12 +66,10 @@ export default function DirectoryPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-text text-sm">{member.name}</p>
-                  <p className="text-xs text-text-muted">{member.business}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] px-2 py-0.5 bg-primary/5 text-primary rounded-full font-medium">
-                      {member.category}
+                    <span className="text-[11px] px-2 py-0.5 bg-primary/5 text-primary rounded-full font-medium">
+                      {member.business}
                     </span>
-                    <span className="text-[10px] text-text-muted">{member.chapter}</span>
                   </div>
                 </div>
               </div>
