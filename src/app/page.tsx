@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, Mail, ArrowRight, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useApp } from "@/lib/app-context";
 
 export default function LoginPage() {
   const [mobile, setMobile] = useState("");
@@ -12,11 +13,12 @@ export default function LoginPage() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(60);
   const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
+  const { login, loginWithSupabase, verifyOtp, isSupabase } = useApp();
 
-  const handleSendOTP = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStep("otp");
+  const startCountdown = () => {
+    setCountdown(60);
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -28,7 +30,23 @@ export default function LoginPage() {
     }, 1000);
   };
 
-  const handleOTPChange = (index: number, value: string) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (isSupabase) {
+      const result = await loginWithSupabase(mobile, email);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+    }
+
+    setStep("otp");
+    startCountdown();
+  };
+
+  const handleOTPChange = async (index: number, value: string) => {
     if (value.length > 1) return;
     const newOtp = [...otp];
     newOtp[index] = value;
@@ -41,9 +59,25 @@ export default function LoginPage() {
 
     if (newOtp.every((d) => d !== "")) {
       setVerifying(true);
-      setTimeout(() => {
+      setError("");
+
+      if (isSupabase) {
+        const token = newOtp.join("");
+        const result = await verifyOtp(email, token);
+        if (result.error) {
+          setError(result.error);
+          setVerifying(false);
+          setOtp(["", "", "", "", "", ""]);
+          return;
+        }
         router.push("/dashboard");
-      }, 1500);
+      } else {
+        // Mock mode — accept any 6 digits
+        setTimeout(() => {
+          login(mobile, email);
+          router.push("/dashboard");
+        }, 1500);
+      }
     }
   };
 
@@ -104,6 +138,10 @@ export default function LoginPage() {
                 />
               </div>
 
+              {error && (
+                <p className="text-xs text-danger text-center">{error}</p>
+              )}
+
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 type="submit"
@@ -129,7 +167,7 @@ export default function LoginPage() {
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-text">Verify OTP</h2>
                 <p className="text-sm text-text-muted mt-1">
-                  Sent to {mobile || "+852 ****"}
+                  Sent to {email || mobile || "+852 ****"}
                 </p>
               </div>
 
@@ -147,6 +185,10 @@ export default function LoginPage() {
                   />
                 ))}
               </div>
+
+              {error && (
+                <p className="text-xs text-danger text-center">{error}</p>
+              )}
 
               {verifying ? (
                 <motion.div
@@ -169,7 +211,10 @@ export default function LoginPage() {
                     </p>
                   ) : (
                     <button
-                      onClick={() => setCountdown(60)}
+                      onClick={() => {
+                        startCountdown();
+                        if (isSupabase) loginWithSupabase(mobile, email);
+                      }}
                       className="text-sm font-semibold text-primary"
                     >
                       Resend OTP

@@ -1,16 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Users, Store, CreditCard, ArrowLeftRight, Clock, TrendingUp, BarChart3, Shield } from "lucide-react";
+import { Users, Store, CreditCard, ArrowLeftRight, Clock, TrendingUp, Shield } from "lucide-react";
 import KPICard from "@/components/KPICard";
-
-const settlements = [
-  { id: 1, merchant: "ABC Design Studio", period: "Oct 2024", redeemed: "HKD 3,840", amount: "HKD 3,648", status: "Pending" },
-  { id: 2, merchant: "XYZ Photography", period: "Oct 2024", redeemed: "HKD 2,100", amount: "HKD 1,995", status: "Approved" },
-  { id: 3, merchant: "DEF Consulting", period: "Sep 2024", redeemed: "HKD 4,500", amount: "HKD 4,275", status: "Paid" },
-];
+import { useApp } from "@/lib/app-context";
 
 export default function AdminPage() {
+  const { settlements, adminKPIs, blockchainAudit, approveSettlement } = useApp();
+
   return (
     <div className="min-h-screen bg-background pb-10">
       <div className="px-5 pt-14">
@@ -24,12 +21,12 @@ export default function AdminPage() {
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <KPICard title="Total Members" value="1,247" icon={Users} trend="+3.2%" trendUp={true} />
-          <KPICard title="Active Merchants" value="86" icon={Store} trend="+5" trendUp={true} />
-          <KPICard title="Credits Issued" value="HKD 580K" icon={CreditCard} trend="+12%" trendUp={true} />
-          <KPICard title="Credits Redeemed" value="HKD 342K" icon={ArrowLeftRight} trend="+8%" trendUp={true} />
-          <KPICard title="Outstanding" value="HKD 45K" icon={Clock} trend="-4%" trendUp={false} />
-          <KPICard title="Renewal Rate" value="78%" icon={TrendingUp} trend="+2%" trendUp={true} />
+          <KPICard title="Total Members" value={adminKPIs.totalMembers} icon={Users} trend="+3.2%" trendUp={true} />
+          <KPICard title="Active Merchants" value={adminKPIs.activeMerchants} icon={Store} trend="+5" trendUp={true} />
+          <KPICard title="Credits Issued" value={adminKPIs.creditsIssued} icon={CreditCard} trend="+12%" trendUp={true} />
+          <KPICard title="Credits Redeemed" value={adminKPIs.creditsRedeemed} icon={ArrowLeftRight} trend="+8%" trendUp={true} />
+          <KPICard title="Outstanding" value={adminKPIs.outstanding} icon={Clock} trend="-4%" trendUp={false} />
+          <KPICard title="Renewal Rate" value={adminKPIs.renewalRate} icon={TrendingUp} trend="+2%" trendUp={true} />
         </div>
 
         <motion.div
@@ -40,7 +37,21 @@ export default function AdminPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-text">Settlement Queue</h3>
-            <button className="text-xs text-primary font-medium">Export All</button>
+            <button
+              onClick={() => {
+                const data = settlements.map(s => `${s.merchant},${s.period},${s.redeemed},${s.amount},${s.status}`).join("\n");
+                const blob = new Blob([`Merchant,Period,Redeemed,Settlement,Status\n${data}`], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "settlements.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="text-xs text-primary font-medium"
+            >
+              Export All
+            </button>
           </div>
 
           <div className="space-y-2">
@@ -78,8 +89,27 @@ export default function AdminPage() {
                 </div>
                 {s.status === "Pending" && (
                   <div className="flex gap-2 mt-3 pt-3 border-t border-border">
-                    <button className="flex-1 h-8 bg-primary text-white rounded-lg text-xs font-medium">Approve</button>
-                    <button className="flex-1 h-8 bg-card border border-border rounded-lg text-xs font-medium text-text">Export PDF</button>
+                    <button
+                      onClick={() => approveSettlement(s.id)}
+                      className="flex-1 h-8 bg-primary text-white rounded-lg text-xs font-medium"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => {
+                        const content = `Settlement Report\n\nMerchant: ${s.merchant}\nPeriod: ${s.period}\nRedeemed: ${s.redeemed}\nSettlement: ${s.amount}\nStatus: ${s.status}`;
+                        const blob = new Blob([content], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `settlement-${s.merchant.replace(/\s+/g, "-")}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex-1 h-8 bg-card border border-border rounded-lg text-xs font-medium text-text"
+                    >
+                      Export PDF
+                    </button>
                   </div>
                 )}
               </motion.div>
@@ -104,21 +134,21 @@ export default function AdminPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-muted">Daily Hash</span>
-                <code className="text-[10px] text-primary font-mono bg-primary/5 px-2 py-0.5 rounded">0x7f3a...b2c1</code>
+                <code className="text-[10px] text-primary font-mono bg-primary/5 px-2 py-0.5 rounded">{blockchainAudit.dailyHash}</code>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-muted">Polygon TX</span>
-                <code className="text-[10px] text-primary font-mono bg-primary/5 px-2 py-0.5 rounded">0x4e2d...8f9a</code>
+                <code className="text-[10px] text-primary font-mono bg-primary/5 px-2 py-0.5 rounded">{blockchainAudit.polygonTx}</code>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-muted">Status</span>
                 <span className="flex items-center gap-1 text-xs text-success font-medium">
-                  <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Verified
+                  <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> {blockchainAudit.status}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-muted">Timestamp</span>
-                <span className="text-xs text-text font-medium">2024-10-28 00:00 UTC</span>
+                <span className="text-xs text-text font-medium">{blockchainAudit.timestamp}</span>
               </div>
             </div>
           </div>

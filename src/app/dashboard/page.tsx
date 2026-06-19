@@ -2,25 +2,26 @@
 
 import { motion } from "framer-motion";
 import { QrCode, Send, Clock, Users, CalendarDays, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import WalletCard from "@/components/WalletCard";
 import BottomNav from "@/components/BottomNav";
+import { useApp } from "@/lib/app-context";
 
 const quickActions = [
   { icon: QrCode, label: "Scan QR", path: "/pay", color: "bg-primary" },
   { icon: Send, label: "Pay Merchant", path: "/pay", color: "bg-secondary" },
   { icon: Clock, label: "History", path: "/wallet", color: "bg-success" },
   { icon: Users, label: "Directory", path: "/directory", color: "bg-primary-light" },
-  { icon: CalendarDays, label: "Events", path: "/events", color: "bg-warning" },
-];
-
-const recentTransactions = [
-  { id: 1, merchant: "ABC Design Studio", amount: -120, date: "Today, 2:30 PM", type: "spent" },
-  { id: 2, merchant: "LEN Renewal Credit", amount: 480, date: "28 Oct 2024", type: "earned" },
-  { id: 3, merchant: "XYZ Photography", amount: -80, date: "25 Oct 2024", type: "spent" },
-  { id: 4, merchant: "Welcome Bonus", amount: 100, date: "20 Oct 2024", type: "earned" },
+  { icon: CalendarDays, label: "Events", path: "/notifications", color: "bg-warning" },
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, wallet, transactions } = useApp();
+
+  // Show latest 4 transactions
+  const recentTransactions = transactions.slice(0, 4);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="px-5 pt-14 pb-6 gradient-navy">
@@ -31,21 +32,21 @@ export default function DashboardPage() {
         >
           <div>
             <p className="text-white/60 text-sm">Welcome Back</p>
-            <h1 className="text-white text-xl font-bold">David Chan</h1>
+            <h1 className="text-white text-xl font-bold">{user.name}</h1>
             <span className="inline-block mt-1 px-2.5 py-0.5 bg-secondary/20 text-secondary text-xs font-medium rounded-full">
-              Gold Member
+              {user.membershipTier}
             </span>
           </div>
           <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center">
-            <span className="text-white font-semibold text-sm">DC</span>
+            <span className="text-white font-semibold text-sm">{user.initials}</span>
           </div>
         </motion.div>
 
         <WalletCard
-          balance={480}
-          expiry="28 Oct 2027"
-          renewalStatus="Third Renewal"
-          loyaltyCredit="10% Loyalty Credit"
+          balance={wallet.balance}
+          expiry={wallet.expiry}
+          renewalStatus={wallet.renewalStatus}
+          loyaltyCredit={wallet.loyaltyCredit}
         />
       </div>
 
@@ -61,6 +62,7 @@ export default function DashboardPage() {
             {quickActions.map((action) => (
               <button
                 key={action.label}
+                onClick={() => router.push(action.path)}
                 className="flex flex-col items-center gap-1.5"
               >
                 <div className={`w-11 h-11 rounded-xl ${action.color} flex items-center justify-center`}>
@@ -79,7 +81,10 @@ export default function DashboardPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-text">Recent Transactions</h3>
-            <button className="text-xs text-primary font-medium flex items-center gap-0.5">
+            <button
+              onClick={() => router.push("/wallet")}
+              className="text-xs text-primary font-medium flex items-center gap-0.5"
+            >
               View All <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -104,7 +109,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-text">{tx.merchant}</p>
+                    <p className="text-sm font-medium text-text">{tx.title}</p>
                     <p className="text-xs text-text-muted">{tx.date}</p>
                   </div>
                 </div>

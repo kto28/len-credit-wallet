@@ -2,17 +2,15 @@
 
 import { motion } from "framer-motion";
 import { QrCode, Receipt, Building2, TrendingUp, Users, DollarSign, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import KPICard from "@/components/KPICard";
 import BottomNav from "@/components/BottomNav";
-
-const recentCustomers = [
-  { id: 1, name: "David Chan", amount: 480, date: "Today 2:30 PM" },
-  { id: 2, name: "Emily Wong", amount: 200, date: "Today 11:00 AM" },
-  { id: 3, name: "Frank Lau", amount: 350, date: "Yesterday 4:15 PM" },
-  { id: 4, name: "Grace Ng", amount: 150, date: "Yesterday 10:00 AM" },
-];
+import { useApp } from "@/lib/app-context";
 
 export default function MerchantPage() {
+  const router = useRouter();
+  const { merchantInfo, merchantCustomers } = useApp();
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="px-5 pt-14">
@@ -23,7 +21,7 @@ export default function MerchantPage() {
         >
           <div>
             <h1 className="text-2xl font-bold text-text">Merchant Portal</h1>
-            <p className="text-sm text-text-muted">ABC Design Studio</p>
+            <p className="text-sm text-text-muted">{merchantInfo.name}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
             <Building2 className="w-5 h-5 text-primary" />
@@ -31,21 +29,23 @@ export default function MerchantPage() {
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <KPICard title="Pending Settlement" value="HKD 3,840" icon={DollarSign} trend="+12%" trendUp={true} />
-          <KPICard title="Transactions" value="26" icon={Receipt} trend="+8%" trendUp={true} />
-          <KPICard title="Customers" value="18" icon={Users} trend="+5%" trendUp={true} />
-          <KPICard title="Monthly Growth" value="+15%" icon={TrendingUp} trend="Good" trendUp={true} />
+          <KPICard title="Pending Settlement" value={merchantInfo.pendingSettlement} icon={DollarSign} trend="+12%" trendUp={true} />
+          <KPICard title="Transactions" value={merchantInfo.transactions} icon={Receipt} trend="+8%" trendUp={true} />
+          <KPICard title="Customers" value={merchantInfo.customers} icon={Users} trend="+5%" trendUp={true} />
+          <KPICard title="Monthly Growth" value={merchantInfo.monthlyGrowth} icon={TrendingUp} trend="Good" trendUp={true} />
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-6">
           <motion.button
             whileTap={{ scale: 0.97 }}
+            onClick={() => router.push("/me")}
             className="h-14 bg-primary text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
           >
             <QrCode className="w-4 h-4" /> Create QR
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.97 }}
+            onClick={() => router.push("/admin")}
             className="h-14 bg-card border border-border rounded-xl font-semibold text-sm text-text flex items-center justify-center gap-2"
           >
             <Receipt className="w-4 h-4" /> Settlements
@@ -61,7 +61,7 @@ export default function MerchantPage() {
           </div>
 
           <div className="space-y-2">
-            {recentCustomers.map((c, i) => (
+            {merchantCustomers.map((c, i) => (
               <motion.div
                 key={c.id}
                 initial={{ opacity: 0, y: 10 }}

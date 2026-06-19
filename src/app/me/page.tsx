@@ -5,21 +5,21 @@ import { QRCodeSVG } from "qrcode.react";
 import { Store, Banknote, RefreshCw, Delete } from "lucide-react";
 import { useState } from "react";
 import BottomNav from "@/components/BottomNav";
-
-const MERCHANT = "ABC Design Studio";
+import { useApp } from "@/lib/app-context";
 
 type MeStep = "input" | "qr";
 
 export default function MePage() {
   const [step, setStep] = useState<MeStep>("input");
   const [amount, setAmount] = useState("");
+  const { merchantInfo } = useApp();
 
   const numericAmount = parseInt(amount || "0", 10);
   const canGenerate = numericAmount > 0;
 
   const qrPayload = JSON.stringify({
     t: "LEN_PAY",
-    m: MERCHANT,
+    m: merchantInfo.name,
     a: numericAmount,
     id: `LEN-${Date.now()}`,
   });
@@ -51,7 +51,7 @@ export default function MePage() {
         >
           <div>
             <h1 className="text-2xl font-bold text-text">Receive Credit</h1>
-            <p className="text-sm text-text-muted">{MERCHANT}</p>
+            <p className="text-sm text-text-muted">{merchantInfo.name}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
             <Store className="w-5 h-5 text-primary" />

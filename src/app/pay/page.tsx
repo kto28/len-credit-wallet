@@ -5,6 +5,7 @@ import { Camera, Check, Store, CreditCard, Banknote, AlertCircle } from "lucide-
 import { useState, useRef, useEffect } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import BottomNav from "@/components/BottomNav";
+import { useApp } from "@/lib/app-context";
 
 type PayStep = "scan" | "confirm" | "success";
 
@@ -17,6 +18,7 @@ export default function PayPage() {
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const { wallet, processPayment } = useApp();
 
   const stopScanner = async () => {
     const scanner = scannerRef.current;
@@ -73,6 +75,11 @@ export default function PayPage() {
     }
   };
 
+  const handleConfirmPayment = () => {
+    processPayment(merchant, amount);
+    setStep("success");
+  };
+
   const resetFlow = async () => {
     await stopScanner();
     setMerchant("");
@@ -80,6 +87,9 @@ export default function PayPage() {
     setError("");
     setStep("scan");
   };
+
+  const creditApplied = Math.min(amount, wallet.balance);
+  const remainingCash = Math.max(0, amount - wallet.balance);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -128,6 +138,10 @@ export default function PayPage() {
                 <Camera className="w-4 h-4" />
                 {scanning ? "Stop Camera" : "Scan Merchant QR"}
               </button>
+
+              <p className="text-xs text-text-muted mt-3">
+                Available credit: <span className="font-semibold text-primary">HKD {wallet.balance.toLocaleString()}</span>
+              </p>
             </motion.div>
           )}
 
@@ -164,28 +178,37 @@ export default function PayPage() {
                       <CreditCard className="w-4 h-4 text-secondary" />
                       <span className="text-sm text-text-muted">Apply Credit</span>
                     </div>
-                    <span className="text-lg font-bold text-success">-HKD {amount.toLocaleString()}</span>
+                    <span className="text-lg font-bold text-success">-HKD {creditApplied.toLocaleString()}</span>
                   </div>
 
                   <div className="h-px bg-border" />
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-text">Remaining Cash</span>
-                    <span className="text-xl font-bold text-primary">HKD 0</span>
+                    <span className="text-xl font-bold text-primary">HKD {remainingCash.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-success/5 border border-success/20 rounded-xl p-3 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-success" />
-                <p className="text-xs text-success font-medium">
-                  Fully paid with LEN credit: HKD {amount.toLocaleString()}
-                </p>
-              </div>
+              {remainingCash === 0 ? (
+                <div className="bg-success/5 border border-success/20 rounded-xl p-3 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-success" />
+                  <p className="text-xs text-success font-medium">
+                    Fully paid with LEN credit: HKD {creditApplied.toLocaleString()}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-warning/5 border border-warning/20 rounded-xl p-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-warning" />
+                  <p className="text-xs text-warning font-medium">
+                    Insufficient credit. HKD {remainingCash.toLocaleString()} needs cash payment.
+                  </p>
+                </div>
+              )}
 
               <motion.button
                 whileTap={{ scale: 0.98 }}
-                onClick={() => setStep("success")}
+                onClick={handleConfirmPayment}
                 className="w-full h-14 bg-primary text-white rounded-xl font-semibold text-base shadow-lg shadow-primary/20"
               >
                 Confirm Payment

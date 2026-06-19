@@ -5,21 +5,13 @@ import { ArrowUpRight, ArrowDownLeft, XCircle, Filter } from "lucide-react";
 import { useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/lib/app-context";
 
 const filters = ["All", "Earned", "Used", "Expired"];
 
-const transactions = [
-  { id: 1, title: "LEN Renewal Credit", amount: 480, date: "28 Oct 2024", type: "earned", status: "completed" },
-  { id: 2, title: "ABC Design Studio", amount: -120, date: "25 Oct 2024", type: "used", status: "completed" },
-  { id: 3, title: "XYZ Photography", amount: -80, date: "22 Oct 2024", type: "used", status: "completed" },
-  { id: 4, title: "Welcome Bonus", amount: 100, date: "20 Oct 2024", type: "earned", status: "completed" },
-  { id: 5, title: "Expired Q3 Credit", amount: -50, date: "30 Sep 2024", type: "expired", status: "expired" },
-  { id: 6, title: "Referral Bonus", amount: 200, date: "15 Sep 2024", type: "earned", status: "completed" },
-  { id: 7, title: "DEF Consulting", amount: -150, date: "10 Sep 2024", type: "used", status: "completed" },
-];
-
 export default function WalletPage() {
   const [activeFilter, setActiveFilter] = useState("All");
+  const { wallet, transactions } = useApp();
 
   const filtered = activeFilter === "All"
     ? transactions
@@ -43,15 +35,15 @@ export default function WalletPage() {
           className="grid grid-cols-3 gap-3 mb-6"
         >
           <div className="bg-card rounded-xl p-4 border border-border text-center">
-            <p className="text-xl font-bold text-text">480</p>
+            <p className="text-xl font-bold text-text">{wallet.balance}</p>
             <p className="text-[10px] text-text-muted mt-0.5">Balance</p>
           </div>
           <div className="bg-card rounded-xl p-4 border border-border text-center">
-            <p className="text-xl font-bold text-success">780</p>
+            <p className="text-xl font-bold text-success">{wallet.totalEarned}</p>
             <p className="text-[10px] text-text-muted mt-0.5">Earned</p>
           </div>
           <div className="bg-card rounded-xl p-4 border border-border text-center">
-            <p className="text-xl font-bold text-text">350</p>
+            <p className="text-xl font-bold text-text">{wallet.totalUsed}</p>
             <p className="text-[10px] text-text-muted mt-0.5">Used</p>
           </div>
         </motion.div>
