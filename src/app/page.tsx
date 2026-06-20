@@ -107,19 +107,17 @@ export default function LoginPage() {
               onSubmit={handleSubmit}
               className="space-y-4"
             >
-              {!isMysql && (
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                  <input
-                    type="tel"
-                    placeholder="Mobile Number"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="w-full h-13 pl-11 pr-4 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    required={!isMysql}
-                  />
-                </div>
-              )}
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <input
+                  type="tel"
+                  placeholder="Mobile Number"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  className="w-full h-13 pl-11 pr-4 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  required
+                />
+              </div>
 
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
@@ -133,19 +131,17 @@ export default function LoginPage() {
                 />
               </div>
 
-              {isMysql && (
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-13 pl-11 pr-4 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    required
-                  />
-                </div>
-              )}
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-13 pl-11 pr-4 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  required
+                />
+              </div>
 
               {error && (
                 <p className="text-xs text-danger text-center">{error}</p>
