@@ -13,6 +13,7 @@ export function getPool(): mysql.Pool {
       waitForConnections: true,
       connectionLimit: 5,
       queueLimit: 0,
+      connectTimeout: 5000,
       enableKeepAlive: true,
       keepAliveInitialDelay: 0,
     });
@@ -21,9 +22,14 @@ export function getPool(): mysql.Pool {
 }
 
 export async function query<T>(sql: string, params?: (string | number | boolean | null)[]): Promise<T> {
-  const db = getPool();
-  const [rows] = await db.execute(sql, params ?? []);
-  return rows as T;
+  try {
+    const db = getPool();
+    const [rows] = await db.execute(sql, params ?? []);
+    return rows as T;
+  } catch (error) {
+    console.error("DB query error:", error);
+    throw error;
+  }
 }
 
 export function isDbConfigured(): boolean {
