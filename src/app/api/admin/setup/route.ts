@@ -59,7 +59,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Jenny wallet fixed", userId: jennyId });
     }
 
-    return NextResponse.json({ error: "Unknown action. Use: check, fix-eddy, fix-jenny-member" });
+    // Add join_date and chapter columns to members table
+    if (action === "migrate-members") {
+      try {
+        await query("ALTER TABLE members ADD COLUMN join_date DATE DEFAULT NULL");
+      } catch { /* column may already exist */ }
+      try {
+        await query("ALTER TABLE members ADD COLUMN chapter VARCHAR(50) DEFAULT 'Wisdom'");
+      } catch { /* column may already exist */ }
+      // Set all existing members to Wisdom chapter
+      await query("UPDATE members SET chapter = 'Wisdom' WHERE chapter IS NULL OR chapter = ''");
+      return NextResponse.json({ message: "Members table migrated: join_date + chapter added" });
+    }
+
+    return NextResponse.json({ error: "Unknown action. Use: check, fix-eddy, fix-jenny, migrate-members" });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

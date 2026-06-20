@@ -51,6 +51,8 @@ export interface Member {
   phone?: string;
   whatsapp?: string;
   website?: string;
+  joinDate?: string;
+  chapter?: string;
 }
 
 export interface MerchantCustomer {
