@@ -1,9 +1,10 @@
-import mysql from "mysql2/promise";
+import type { Pool } from "mysql2/promise";
 
-let pool: mysql.Pool | null = null;
+let pool: Pool | null = null;
 
-export function getPool(): mysql.Pool {
+async function getPool(): Promise<Pool> {
   if (!pool) {
+    const mysql = await import("mysql2/promise");
     pool = mysql.createPool({
       host: process.env.DB_HOST || "localhost",
       port: parseInt(process.env.DB_PORT || "3306"),
@@ -23,7 +24,7 @@ export function getPool(): mysql.Pool {
 
 export async function query<T>(sql: string, params?: (string | number | boolean | null)[]): Promise<T> {
   try {
-    const db = getPool();
+    const db = await getPool();
     const [rows] = await db.execute(sql, params ?? []);
     return rows as T;
   } catch (error) {
