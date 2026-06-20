@@ -24,15 +24,16 @@ import {
   defaultAdminKPIs,
   defaultBlockchainAudit,
 } from "./mock-data";
-import { createClient } from "./supabase/client";
-import type { DbProfile, DbWallet, DbTransaction, DbNotification, DbMember, DbSettlement } from "./supabase/types";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const isSupabaseConfigured = () =>
-  typeof window !== "undefined" &&
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://YOUR_PROJECT.supabase.co";
+type BackendMode = "mock" | "mysql";
+
+function getBackendMode(): BackendMode {
+  if (typeof window === "undefined") return "mock";
+  if (process.env.NEXT_PUBLIC_API_MODE === "mysql") return "mysql";
+  return "mock";
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -53,10 +54,9 @@ interface AppState {
   isLoggedIn: boolean;
   user: User;
   login: (mobile: string, email: string) => void;
-  loginWithSupabase: (mobile: string, email: string) => Promise<{ error?: string }>;
-  verifyOtp: (email: string, token: string) => Promise<{ error?: string }>;
+  loginWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => void;
-  isSupabase: boolean;
+  backendMode: BackendMode;
   loading: boolean;
 
   // Wallet
@@ -102,24 +102,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [blockchainAudit] = useState<BlockchainAudit>(defaultBlockchainAudit);
   const [loading, setLoading] = useState(true);
 
-  const isSupabase = isSupabaseConfigured();
+  const backendMode = getBackendMode();
 
-  // ── Load Supabase session on mount ────────────────────────────────────
+  // ── Load session on mount (MySQL API mode) ────────────────────────────
 
   useEffect(() => {
-    if (!isSupabase) {
+    if (backendMode !== "mysql") {
       setLoading(false);
       return;
     }
 
-    const supabase = createClient();
-
-    const loadSession = async () => {
+    const checkSession = async () => {
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
+        const res = await fetch("/api/auth/session");
+        const data = await res.json();
+        if (data.user) {
+          setUser({
+            id: String(data.user.id),
+            name: data.user.name,
+            initials: data.user.initials,
+            mobile: data.user.mobile,
+            email: data.user.email,
+            membershipTier: data.user.membershipTier,
+            role: data.user.role,
+          });
           setIsLoggedIn(true);
-          await loadUserData(authUser.id);
+          await loadData();
         }
       } catch {
         // Not logged in
@@ -128,193 +136,98 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          setIsLoggedIn(true);
-          await loadUserData(session.user.id);
-        } else if (event === "SIGNED_OUT") {
-          setIsLoggedIn(false);
-          setUser(defaultUser);
-          setWallet(defaultWallet);
-          setTransactions(defaultTransactions);
-          setNotifications(defaultNotifications);
-        }
+    checkSession();
+  }, [backendMode]);
+
+  // ── Load all data from API ────────────────────────────────────────────
+
+  const loadData = async () => {
+    try {
+      const [walletRes, txRes, notifRes, membersRes, settlementsRes] = await Promise.all([
+        fetch("/api/wallet"),
+        fetch("/api/transactions"),
+        fetch("/api/notifications"),
+        fetch("/api/members"),
+        fetch("/api/settlements"),
+      ]);
+
+      const walletData = await walletRes.json();
+      if (walletData.wallet) setWallet(walletData.wallet);
+
+      const txData = await txRes.json();
+      if (txData.transactions) {
+        setTransactions(txData.transactions.map((t: { id: number; title: string; amount: number; type: string; status: string; date: string }) => ({
+          ...t,
+          date: timeAgo(t.date),
+        })));
       }
-    );
 
-    loadSession();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [isSupabase]);
-
-  // ── Load user data from Supabase ──────────────────────────────────────
-
-  const loadUserData = async (userId: string) => {
-    const supabase = createClient();
-
-    // Load profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single<DbProfile>();
-
-    if (profile) {
-      setUser({
-        id: profile.id,
-        name: profile.name,
-        initials: profile.initials,
-        mobile: profile.mobile,
-        email: profile.email,
-        membershipTier: profile.membership_tier,
-        role: profile.role,
-      });
-    }
-
-    // Load wallet
-    const { data: walletData } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", userId)
-      .single<DbWallet>();
-
-    if (walletData) {
-      setWallet({
-        balance: walletData.balance,
-        totalEarned: walletData.total_earned,
-        totalUsed: walletData.total_used,
-        expiry: walletData.expiry,
-        renewalStatus: walletData.renewal_status,
-        loyaltyCredit: walletData.loyalty_credit,
-      });
-    }
-
-    // Load transactions
-    const { data: txData } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .returns<DbTransaction[]>();
-
-    if (txData) {
-      setTransactions(
-        txData.map((t) => ({
-          id: t.id,
-          title: t.title,
-          amount: t.amount,
-          date: timeAgo(t.created_at),
-          type: t.type,
-          status: t.status,
-        }))
-      );
-    }
-
-    // Load notifications
-    const { data: notifData } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .returns<DbNotification[]>();
-
-    if (notifData) {
-      setNotifications(
-        notifData.map((n) => ({
-          id: n.id,
-          title: n.title,
-          desc: n.description,
-          time: timeAgo(n.created_at),
-          iconType: n.icon_type as Notification["iconType"],
+      const notifData = await notifRes.json();
+      if (notifData.notifications) {
+        setNotifications(notifData.notifications.map((n: { id: number; title: string; desc: string; iconType: string; unread: boolean; time: string }) => ({
+          ...n,
+          time: timeAgo(n.time),
           color: "",
           bg: "",
-          unread: n.unread,
-        }))
-      );
-    }
+        })));
+      }
 
-    // Load members directory
-    const { data: memberData } = await supabase
-      .from("members")
-      .select("*")
-      .order("name")
-      .returns<DbMember[]>();
+      const membersData = await membersRes.json();
+      if (membersData.members) setMembers(membersData.members);
 
-    if (memberData) {
-      setMembers(
-        memberData.map((m) => ({
-          id: m.id,
-          name: m.name,
-          business: m.business,
-          photo: m.photo,
-          phone: m.phone || undefined,
-          whatsapp: m.whatsapp || undefined,
-          website: m.website || undefined,
-        }))
-      );
-    }
-
-    // Load settlements
-    const { data: settlData } = await supabase
-      .from("settlements")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .returns<DbSettlement[]>();
-
-    if (settlData) {
-      setSettlements(
-        settlData.map((s) => ({
-          id: s.id,
-          merchant: s.merchant,
-          period: s.period,
-          redeemed: s.redeemed,
-          amount: s.amount,
-          status: s.status,
-        }))
-      );
+      const settlementsData = await settlementsRes.json();
+      if (settlementsData.settlements) setSettlements(settlementsData.settlements);
+    } catch (err) {
+      console.error("Failed to load data:", err);
     }
   };
 
   // ── Auth ────────────────────────────────────────────────────────────────
 
   const login = useCallback((mobile: string, email: string) => {
+    // Mock mode login
     setUser((prev) => ({ ...prev, mobile, email }));
     setIsLoggedIn(true);
   }, []);
 
-  const loginWithSupabase = useCallback(async (mobile: string, email: string) => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        data: { mobile, name: "", initials: "" },
-      },
-    });
-    if (error) return { error: error.message };
-    return {};
-  }, []);
+  const loginWithPassword = useCallback(async (email: string, password: string) => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
 
-  const verifyOtp = useCallback(async (email: string, token: string) => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: "email",
-    });
-    if (error) return { error: error.message };
-    return {};
+      if (!res.ok) return { error: data.error || "Login failed" };
+
+      setUser({
+        id: String(data.user.id),
+        name: data.user.name,
+        initials: data.user.initials,
+        mobile: data.user.mobile,
+        email: data.user.email,
+        membershipTier: data.user.membershipTier,
+        role: data.user.role,
+      });
+      setIsLoggedIn(true);
+      await loadData();
+      return {};
+    } catch {
+      return { error: "Network error" };
+    }
   }, []);
 
   const logout = useCallback(async () => {
-    if (isSupabase) {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+    if (backendMode === "mysql") {
+      await fetch("/api/auth/logout", { method: "POST" });
     }
     setIsLoggedIn(false);
-  }, [isSupabase]);
+    setUser(defaultUser);
+    setWallet(defaultWallet);
+    setTransactions(defaultTransactions);
+    setNotifications(defaultNotifications);
+  }, [backendMode]);
 
   // ── Wallet / Payment ───────────────────────────────────────────────────
 
@@ -323,47 +236,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     const dateStr = `Today, ${timeStr}`;
 
-    if (isSupabase) {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      // Insert transaction
-      await supabase.from("transactions").insert({
-        user_id: authUser.id,
-        title: merchant,
-        amount: -amount,
-        type: "used",
-        status: "completed",
+    if (backendMode === "mysql") {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ merchant, amount }),
       });
-
-      // Update wallet balance
-      const { data: w } = await supabase
-        .from("wallets")
-        .select("balance, total_used")
-        .eq("user_id", authUser.id)
-        .single();
-      if (w) {
-        await supabase
-          .from("wallets")
-          .update({
-            balance: (w as { balance: number; total_used: number }).balance - amount,
-            total_used: (w as { balance: number; total_used: number }).total_used + amount,
-          })
-          .eq("user_id", authUser.id);
+      if (res.ok) {
+        await loadData(); // Refresh all data from server
       }
-
-      // Insert notification
-      await supabase.from("notifications").insert({
-        user_id: authUser.id,
-        title: "Payment Sent",
-        description: `HKD ${amount} credit used at ${merchant}`,
-        icon_type: "credit",
-        unread: true,
-      });
-
-      // Reload data
-      await loadUserData(authUser.id);
     } else {
       // Mock mode
       const newTx: Transaction = {
@@ -401,52 +282,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...prev,
       ]);
     }
-  }, [isSupabase, user.name]);
+  }, [backendMode, user.name]);
 
   // ── Notifications ──────────────────────────────────────────────────────
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   const markNotificationRead = useCallback(async (id: number) => {
-    if (isSupabase) {
-      const supabase = createClient();
-      await supabase.from("notifications").update({ unread: false }).eq("id", id);
+    if (backendMode === "mysql") {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
     }
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
     );
-  }, [isSupabase]);
+  }, [backendMode]);
 
   const markAllNotificationsRead = useCallback(async () => {
-    if (isSupabase) {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        await supabase
-          .from("notifications")
-          .update({ unread: false })
-          .eq("user_id", authUser.id);
-      }
+    if (backendMode === "mysql") {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
     }
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  }, [isSupabase]);
+  }, [backendMode]);
 
   // ── Admin ──────────────────────────────────────────────────────────────
 
   const approveSettlement = useCallback(async (id: number) => {
-    if (isSupabase) {
-      const supabase = createClient();
-      await supabase
-        .from("settlements")
-        .update({ status: "Approved" })
-        .eq("id", id);
+    if (backendMode === "mysql") {
+      await fetch("/api/settlements", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
     }
     setSettlements((prev) =>
       prev.map((s) =>
         s.id === id ? { ...s, status: "Approved" as SettlementStatus } : s
       )
     );
-  }, [isSupabase]);
+  }, [backendMode]);
 
   // ── Value ──────────────────────────────────────────────────────────────
 
@@ -454,10 +335,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isLoggedIn,
     user,
     login,
-    loginWithSupabase,
-    verifyOtp,
+    loginWithPassword,
     logout,
-    isSupabase,
+    backendMode,
     loading,
     wallet,
     transactions,
