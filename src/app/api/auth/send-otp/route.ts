@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
     if (!brevoRes.ok) {
       const errBody = await brevoRes.text();
       console.error("Brevo error:", errBody);
-      return NextResponse.json({ error: "Failed to send OTP" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to send OTP", detail: errBody }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, message: "OTP sent to your email" });
   } catch (error) {
     console.error("Send OTP error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error", detail: String(error) }, { status: 500 });
   }
 }
