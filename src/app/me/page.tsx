@@ -2,8 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
-import { Store, Banknote, RefreshCw, Delete } from "lucide-react";
+import { Store, Banknote, RefreshCw, Delete, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import { useApp } from "@/lib/app-context";
 
@@ -12,7 +13,13 @@ type MeStep = "input" | "qr";
 export default function MePage() {
   const [step, setStep] = useState<MeStep>("input");
   const [amount, setAmount] = useState("");
-  const { merchantInfo } = useApp();
+  const router = useRouter();
+  const { merchantInfo, user, logout } = useApp();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
 
   const numericAmount = parseInt(amount || "0", 10);
   const canGenerate = numericAmount > 0;
@@ -53,8 +60,8 @@ export default function MePage() {
             <h1 className="text-2xl font-bold text-text">Receive Credit</h1>
             <p className="text-sm text-text-muted">{merchantInfo.name}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
-            <Store className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-full gradient-navy flex items-center justify-center">
+            <span className="text-white text-sm font-semibold">{user.initials}</span>
           </div>
         </motion.div>
 
@@ -142,6 +149,16 @@ export default function MePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          onClick={handleLogout}
+          className="w-full h-12 mt-6 bg-danger/5 border border-danger/20 rounded-xl text-sm font-medium text-danger flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" /> Log Out
+        </motion.button>
       </div>
 
       <BottomNav />
