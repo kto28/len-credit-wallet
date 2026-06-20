@@ -136,7 +136,7 @@ export const defaultNotifications: Notification[] = [
 
 export const defaultMembers: Member[] = [
   { id: 1, name: "Bryan Cheung", business: "人工智能辦公室應用", photo: "BC", phone: "91001001", whatsapp: "85291001001", website: "https://example.com" },
-  { id: 2, name: "Eddy To", business: "保險及強積金 / 理財顧問", photo: "ET", phone: "91001002", whatsapp: "85291001002", website: "https://example.com" },
+  { id: 2, name: "Eddy To", business: "保險及強積金 / 理財顧問", photo: "ET", phone: "97796855", whatsapp: "85297796855", website: "https://www.eddyto.com" },
   { id: 3, name: "Jacky Chiu", business: "營銷科技學院", photo: "JC", phone: "91001003", whatsapp: "85291001003", website: "https://example.com" },
   { id: 4, name: "Joseph Ng", business: "舞蹈治療", photo: "JN", phone: "91001004", whatsapp: "85291001004", website: "https://example.com" },
   { id: 5, name: "Miranda Mok", business: "基因抗衰老產品", photo: "MM", phone: "91001005", whatsapp: "85291001005", website: "https://example.com" },
