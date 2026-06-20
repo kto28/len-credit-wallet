@@ -31,23 +31,32 @@ export async function POST(req: NextRequest) {
       // Ensure wallet exists
       const w = await query<{ user_id: number }[]>("SELECT user_id FROM wallets WHERE user_id = ?", [eddyId]);
       if (w.length === 0) {
-        await query("INSERT INTO wallets (user_id, balance, total_earned, total_used, expiry, renewal_status, loyalty_credit) VALUES (?, 1500, 2500, 1000, '28 Oct 2027', 'Second Renewal', '10% Loyalty Credit')", [eddyId]);
+        await query("INSERT INTO wallets (user_id, balance, total_earned, total_used, expiry, renewal_status, loyalty_credit) VALUES (?, 192, 192, 0, '28 Oct 2027', 'First Renewal', '5% Silver')", [eddyId]);
       } else {
-        await query("UPDATE wallets SET balance = 1500, total_earned = 2500, total_used = 1000, expiry = '28 Oct 2027', renewal_status = 'Second Renewal', loyalty_credit = '10% Loyalty Credit' WHERE user_id = ?", [eddyId]);
+        await query("UPDATE wallets SET balance = 192, total_earned = 192, total_used = 0, expiry = '28 Oct 2027', renewal_status = 'First Renewal', loyalty_credit = '5% Silver' WHERE user_id = ?", [eddyId]);
       }
+      // Update user tier
+      await query("UPDATE users SET membership_tier = 'Silver' WHERE id = ?", [eddyId]);
       return NextResponse.json({ message: "Eddy wallet fixed", userId: eddyId });
     }
 
-    // Add Jenny Tse member record
-    if (action === "fix-jenny-member") {
-      // Update or insert Jenny in members
-      const existing = await query<{ id: number }[]>("SELECT id FROM members WHERE name = 'Jenny Tse'");
-      if (existing.length > 0) {
-        await query("UPDATE members SET email = 'jennytse@multivation.com.hk', phone = '67487062', company = 'Multivation', role = 'Director', tier = 'Gold', whatsapp = '85267487062', website = 'https://www.multivation.com.hk' WHERE name = 'Jenny Tse'");
+    // Fix Jenny Tse wallet + member
+    if (action === "fix-jenny") {
+      const jenny = await query<{ id: number }[]>("SELECT id FROM users WHERE email = 'jennytse@multivation.com.hk'");
+      if (jenny.length === 0) return NextResponse.json({ error: "Jenny not found" });
+      const jennyId = jenny[0].id;
+
+      const w = await query<{ user_id: number }[]>("SELECT user_id FROM wallets WHERE user_id = ?", [jennyId]);
+      if (w.length === 0) {
+        await query("INSERT INTO wallets (user_id, balance, total_earned, total_used, expiry, renewal_status, loyalty_credit) VALUES (?, 192, 192, 0, '28 Oct 2027', 'First Renewal', '5% Silver')", [jennyId]);
       } else {
-        await query("INSERT INTO members (name, initials, email, phone, company, role, tier, whatsapp, website) VALUES ('Jenny Tse', 'JT', 'jennytse@multivation.com.hk', '67487062', 'Multivation', 'Director', 'Gold', '85267487062', 'https://www.multivation.com.hk')");
+        await query("UPDATE wallets SET balance = 192, total_earned = 192, total_used = 0, expiry = '28 Oct 2027', renewal_status = 'First Renewal', loyalty_credit = '5% Silver' WHERE user_id = ?", [jennyId]);
       }
-      return NextResponse.json({ message: "Jenny member record updated" });
+
+      // Update user tier
+      await query("UPDATE users SET membership_tier = 'Silver' WHERE id = ?", [jennyId]);
+
+      return NextResponse.json({ message: "Jenny wallet fixed", userId: jennyId });
     }
 
     return NextResponse.json({ error: "Unknown action. Use: check, fix-eddy, fix-jenny-member" });
