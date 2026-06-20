@@ -98,18 +98,18 @@ export interface BlockchainAudit {
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
 export const defaultUser: User = {
-  id: "u-001",
-  name: "David Chan",
-  initials: "DC",
-  mobile: "91234567",
-  email: "david@len.hk",
+  id: "u-004",
+  name: "Eddy To",
+  initials: "ET",
+  mobile: "97796855",
+  email: "eddyto@gmail.com",
   membershipTier: "Gold Member",
   role: "member",
 };
 
 export const defaultWallet: WalletInfo = {
-  balance: 480,
-  totalEarned: 780,
+  balance: 500,
+  totalEarned: 850,
   totalUsed: 350,
   expiry: "28 Oct 2027",
   renewalStatus: "Third Renewal",
@@ -118,12 +118,11 @@ export const defaultWallet: WalletInfo = {
 
 export const defaultTransactions: Transaction[] = [
   { id: 1, title: "ABC Design Studio", amount: -120, date: "Today, 2:30 PM", type: "used", status: "completed" },
-  { id: 2, title: "LEN Renewal Credit", amount: 480, date: "28 Oct 2024", type: "earned", status: "completed" },
-  { id: 3, title: "XYZ Photography", amount: -80, date: "22 Oct 2024", type: "used", status: "completed" },
-  { id: 4, title: "Welcome Bonus", amount: 100, date: "20 Oct 2024", type: "earned", status: "completed" },
-  { id: 5, title: "Expired Q3 Credit", amount: -50, date: "30 Sep 2024", type: "expired", status: "expired" },
-  { id: 6, title: "Referral Bonus", amount: 200, date: "15 Sep 2024", type: "earned", status: "completed" },
-  { id: 7, title: "DEF Consulting", amount: -150, date: "10 Sep 2024", type: "used", status: "completed" },
+  { id: 2, title: "LEN Renewal Credit", amount: 500, date: "18 Jun 2025", type: "earned", status: "completed" },
+  { id: 3, title: "XYZ Photography", amount: -80, date: "15 Jun 2025", type: "used", status: "completed" },
+  { id: 4, title: "Welcome Bonus", amount: 100, date: "13 Jun 2025", type: "earned", status: "completed" },
+  { id: 5, title: "Referral Bonus", amount: 250, date: "6 Jun 2025", type: "earned", status: "completed" },
+  { id: 6, title: "Expired Q2 Credit", amount: -150, date: "20 May 2025", type: "expired", status: "expired" },
 ];
 
 export const defaultNotifications: Notification[] = [
