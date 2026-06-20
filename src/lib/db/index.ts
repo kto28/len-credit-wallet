@@ -1,8 +1,8 @@
-import type { Pool } from "mysql2/promise";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-let pool: Pool | null = null;
+let pool: any = null;
 
-async function getPool(): Promise<Pool> {
+async function getPool() {
   if (!pool) {
     const mysql = await import("mysql2/promise");
     pool = mysql.createPool({
