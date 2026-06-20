@@ -2,23 +2,21 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, Mail, ArrowRight, Shield, Lock } from "lucide-react";
+import { Phone, Mail, ArrowRight, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-context";
 
 export default function LoginPage() {
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [step, setStep] = useState<"login" | "otp">("login");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(60);
+  const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { login, loginWithPassword, backendMode } = useApp();
-
-  const isMysql = backendMode === "mysql";
+  const { sendOtp, verifyOtp } = useApp();
 
   const startCountdown = () => {
     setCountdown(60);
@@ -33,25 +31,31 @@ export default function LoginPage() {
     }, 1000);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSending(true);
 
-    if (isMysql) {
-      // MySQL mode: direct password login
-      setVerifying(true);
-      const result = await loginWithPassword(email, password);
-      if (result.error) {
-        setError(result.error);
-        setVerifying(false);
-        return;
-      }
-      router.push("/dashboard");
-    } else {
-      // Mock mode: OTP flow
-      setStep("otp");
-      startCountdown();
+    const result = await sendOtp(mobile, email);
+    setSending(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
     }
+
+    setStep("otp");
+    startCountdown();
+  };
+
+  const handleResendOtp = async () => {
+    setError("");
+    const result = await sendOtp(mobile, email);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    startCountdown();
   };
 
   const handleOTPChange = (index: number, value: string) => {
@@ -67,10 +71,18 @@ export default function LoginPage() {
 
     if (newOtp.every((d) => d !== "")) {
       setVerifying(true);
-      setTimeout(() => {
-        login(mobile, email);
+      setError("");
+      const code = newOtp.join("");
+      verifyOtp(mobile, email, code).then((result) => {
+        if (result.error) {
+          setError(result.error);
+          setVerifying(false);
+          setOtp(["", "", "", "", "", ""]);
+          document.getElementById("otp-0")?.focus();
+          return;
+        }
         router.push("/dashboard");
-      }, 1500);
+      });
     }
   };
 
@@ -104,7 +116,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              onSubmit={handleSubmit}
+              onSubmit={handleSendOtp}
               className="space-y-4"
             >
               <div className="relative">
@@ -114,7 +126,7 @@ export default function LoginPage() {
                   placeholder="Mobile Number"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
-                  className="w-full h-13 pl-11 pr-4 bg-white border border-border rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full h-13 pl-11 pr-4 bg-white text-gray-900 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   required
                 />
               </div>
@@ -126,19 +138,7 @@ export default function LoginPage() {
                   placeholder="Email Address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-13 pl-11 pr-4 bg-white border border-border rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  required
-                />
-              </div>
-
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-13 pl-11 pr-4 bg-white border border-border rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full h-13 pl-11 pr-4 bg-white text-gray-900 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   required
                 />
               </div>
@@ -147,7 +147,7 @@ export default function LoginPage() {
                 <p className="text-xs text-danger text-center">{error}</p>
               )}
 
-              {verifying ? (
+              {sending ? (
                 <div className="flex justify-center py-4">
                   <motion.div
                     animate={{ rotate: 360 }}
@@ -161,7 +161,7 @@ export default function LoginPage() {
                   type="submit"
                   className="w-full h-13 bg-primary text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary-light transition-colors"
                 >
-                  {isMysql ? "Login" : "Send OTP"}
+                  Send OTP
                   <ArrowRight className="w-4 h-4" />
                 </motion.button>
               )}
@@ -182,7 +182,7 @@ export default function LoginPage() {
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-text">Verify OTP</h2>
                 <p className="text-sm text-text-muted mt-1">
-                  Sent to {mobile || "+852 ****"}
+                  Code sent to {email}
                 </p>
               </div>
 
@@ -196,10 +196,14 @@ export default function LoginPage() {
                     maxLength={1}
                     value={digit}
                     onChange={(e) => handleOTPChange(i, e.target.value)}
-                    className="w-12 h-14 text-center text-xl font-bold bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    className="w-12 h-14 text-center text-xl font-bold bg-white text-gray-900 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   />
                 ))}
               </div>
+
+              {error && (
+                <p className="text-xs text-danger text-center">{error}</p>
+              )}
 
               {verifying ? (
                 <motion.div
@@ -222,7 +226,7 @@ export default function LoginPage() {
                     </p>
                   ) : (
                     <button
-                      onClick={() => startCountdown()}
+                      onClick={handleResendOtp}
                       className="text-sm font-semibold text-primary"
                     >
                       Resend OTP

@@ -13,27 +13,13 @@ import {
   SettlementStatus,
   AdminKPIs,
   BlockchainAudit,
-  defaultUser,
-  defaultWallet,
-  defaultTransactions,
-  defaultNotifications,
-  defaultMembers,
   defaultMerchantInfo,
   defaultMerchantCustomers,
-  defaultSettlements,
   defaultAdminKPIs,
   defaultBlockchainAudit,
 } from "./mock-data";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-type BackendMode = "mock" | "mysql";
-
-function getBackendMode(): BackendMode {
-  if (typeof window === "undefined") return "mock";
-  if (process.env.NEXT_PUBLIC_API_MODE === "mysql") return "mysql";
-  return "mock";
-}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -47,16 +33,18 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 7)}w ago`;
 }
 
+const emptyUser: User = { id: "", name: "", initials: "", mobile: "", email: "", membershipTier: "", role: "member" };
+const emptyWallet: WalletInfo = { balance: 0, totalEarned: 0, totalUsed: 0, expiry: "", renewalStatus: "", loyaltyCredit: "" };
+
 // ─── Context shape ──────────────────────────────────────────────────────────
 
 interface AppState {
   // Auth
   isLoggedIn: boolean;
   user: User;
-  login: (mobile: string, email: string) => void;
-  loginWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+  sendOtp: (mobile: string, email: string) => Promise<{ error?: string }>;
+  verifyOtp: (mobile: string, email: string, code: string) => Promise<{ error?: string }>;
   logout: () => void;
-  backendMode: BackendMode;
   loading: boolean;
 
   // Wallet
@@ -90,28 +78,21 @@ const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<User>(defaultUser);
-  const [wallet, setWallet] = useState<WalletInfo>(defaultWallet);
-  const [transactions, setTransactions] = useState<Transaction[]>(defaultTransactions);
-  const [notifications, setNotifications] = useState<Notification[]>(defaultNotifications);
-  const [members, setMembers] = useState<Member[]>(defaultMembers);
+  const [user, setUser] = useState<User>(emptyUser);
+  const [wallet, setWallet] = useState<WalletInfo>(emptyWallet);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [merchantInfo] = useState<MerchantInfo>(defaultMerchantInfo);
   const [merchantCustomers, setMerchantCustomers] = useState<MerchantCustomer[]>(defaultMerchantCustomers);
-  const [settlements, setSettlements] = useState<Settlement[]>(defaultSettlements);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [adminKPIs] = useState<AdminKPIs>(defaultAdminKPIs);
   const [blockchainAudit] = useState<BlockchainAudit>(defaultBlockchainAudit);
   const [loading, setLoading] = useState(true);
 
-  const backendMode = getBackendMode();
-
-  // ── Load session on mount (MySQL API mode) ────────────────────────────
+  // ── Check existing session on mount ────────────────────────────────────
 
   useEffect(() => {
-    if (backendMode !== "mysql") {
-      setLoading(false);
-      return;
-    }
-
     const checkSession = async () => {
       try {
         const res = await fetch("/api/auth/session");
@@ -137,7 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     checkSession();
-  }, [backendMode]);
+  }, []);
 
   // ── Load all data from API ────────────────────────────────────────────
 
@@ -184,22 +165,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Auth ────────────────────────────────────────────────────────────────
 
-  const login = useCallback((mobile: string, email: string) => {
-    // Mock mode login
-    setUser((prev) => ({ ...prev, mobile, email }));
-    setIsLoggedIn(true);
-  }, []);
-
-  const loginWithPassword = useCallback(async (email: string, password: string) => {
+  const sendOtp = useCallback(async (mobile: string, email: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, mobile }),
       });
       const data = await res.json();
+      if (!res.ok) return { error: data.error || "Failed to send OTP" };
+      return {};
+    } catch {
+      return { error: "Network error" };
+    }
+  }, []);
 
-      if (!res.ok) return { error: data.error || "Login failed" };
+  const verifyOtp = useCallback(async (mobile: string, email: string, code: string) => {
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, mobile, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || "Verification failed" };
 
       setUser({
         id: String(data.user.id),
@@ -219,125 +208,74 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    if (backendMode === "mysql") {
-      await fetch("/api/auth/logout", { method: "POST" });
-    }
+    await fetch("/api/auth/logout", { method: "POST" });
     setIsLoggedIn(false);
-    setUser(defaultUser);
-    setWallet(defaultWallet);
-    setTransactions(defaultTransactions);
-    setNotifications(defaultNotifications);
-  }, [backendMode]);
+    setUser(emptyUser);
+    setWallet(emptyWallet);
+    setTransactions([]);
+    setNotifications([]);
+  }, []);
 
   // ── Wallet / Payment ───────────────────────────────────────────────────
 
   const processPayment = useCallback(async (merchant: string, amount: number) => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    const dateStr = `Today, ${timeStr}`;
-
-    if (backendMode === "mysql") {
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ merchant, amount }),
-      });
-      if (res.ok) {
-        await loadData(); // Refresh all data from server
-      }
-    } else {
-      // Mock mode
-      const newTx: Transaction = {
-        id: Date.now(),
-        title: merchant,
-        amount: -amount,
-        date: dateStr,
-        type: "used",
-        status: "completed",
-      };
-
-      setTransactions((prev) => [newTx, ...prev]);
-      setWallet((prev) => ({
-        ...prev,
-        balance: prev.balance - amount,
-        totalUsed: prev.totalUsed + amount,
-      }));
-
-      setMerchantCustomers((prev) => [
-        { id: Date.now(), name: user.name, amount, date: dateStr },
-        ...prev,
-      ]);
-
-      setNotifications((prev) => [
-        {
-          id: Date.now(),
-          title: "Payment Sent",
-          desc: `HKD ${amount} credit used at ${merchant}`,
-          time: "Just now",
-          iconType: "credit" as const,
-          color: "text-primary",
-          bg: "bg-primary/5",
-          unread: true,
-        },
-        ...prev,
-      ]);
+    const res = await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ merchant, amount }),
+    });
+    if (res.ok) {
+      await loadData();
     }
-  }, [backendMode, user.name]);
+  }, []);
 
   // ── Notifications ──────────────────────────────────────────────────────
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   const markNotificationRead = useCallback(async (id: number) => {
-    if (backendMode === "mysql") {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-    }
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
     );
-  }, [backendMode]);
+  }, []);
 
   const markAllNotificationsRead = useCallback(async () => {
-    if (backendMode === "mysql") {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ all: true }),
-      });
-    }
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ all: true }),
+    });
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  }, [backendMode]);
+  }, []);
 
   // ── Admin ──────────────────────────────────────────────────────────────
 
   const approveSettlement = useCallback(async (id: number) => {
-    if (backendMode === "mysql") {
-      await fetch("/api/settlements", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-    }
+    await fetch("/api/settlements", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     setSettlements((prev) =>
       prev.map((s) =>
         s.id === id ? { ...s, status: "Approved" as SettlementStatus } : s
       )
     );
-  }, [backendMode]);
+  }, []);
 
   // ── Value ──────────────────────────────────────────────────────────────
 
   const value: AppState = {
     isLoggedIn,
     user,
-    login,
-    loginWithPassword,
+    sendOtp,
+    verifyOtp,
     logout,
-    backendMode,
     loading,
     wallet,
     transactions,
